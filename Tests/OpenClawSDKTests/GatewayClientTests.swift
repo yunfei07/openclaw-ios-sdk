@@ -90,4 +90,100 @@ struct GatewayClientTests {
         let stored = tokenStore.loadToken(deviceId: identityStore.loadOrCreate().deviceId, role: "operator")
         #expect(stored?.token == "dtok")
     }
+
+    @Test func agentProfileGetSendsRequestAndDecodesResponse() async throws {
+        let socket = MockWebSocket()
+        let tokenStore = InMemoryTokenStore()
+        let identityStore = DeviceIdentityStore(
+            rootURL: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        )
+
+        let payload = AgentProfileResult(
+            agentid: "main",
+            identity: ["name": AnyCodable("Nova")],
+            usermarkdown: "# USER",
+            identitymarkdown: "# IDENTITY",
+            usertemplate: "# USER",
+            identitytemplate: "# IDENTITY",
+            hash: "hash-1"
+        )
+        let encoder = JSONEncoder()
+        let payloadData = try encoder.encode(payload)
+        let payloadJson = try JSONSerialization.jsonObject(with: payloadData) as? [String: Any] ?? [:]
+        let res = ResponseFrame(type: "res", id: "req-1", ok: true, payload: AnyCodable(payloadJson), error: nil)
+        socket.inbox = [.data(try encoder.encode(res))]
+
+        let client = GatewayClient(
+            url: URL(string: "ws://example")!,
+            sharedToken: nil,
+            tokenStore: tokenStore,
+            identityStore: identityStore,
+            webSocket: socket
+        )
+
+        let result = try await client.agentProfileGet(agentId: "main")
+        #expect(result.agentid == "main")
+        #expect(result.hash == "hash-1")
+
+        guard case let .data(data) = socket.sent.first else {
+            Issue.record("missing request frame")
+            return
+        }
+        let req = try JSONDecoder().decode(RequestFrame.self, from: data)
+        #expect(req.method == "agent.profile.get")
+        let params = req.params?.value as? [String: AnyCodable]
+        #expect(params?["agentId"]?.value as? String == "main")
+    }
+
+    @Test func agentProfileSetSendsRequestAndDecodesResponse() async throws {
+        let socket = MockWebSocket()
+        let tokenStore = InMemoryTokenStore()
+        let identityStore = DeviceIdentityStore(
+            rootURL: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        )
+
+        let payload = AgentProfileResult(
+            agentid: "main",
+            identity: ["name": AnyCodable("Nova")],
+            usermarkdown: "# USER",
+            identitymarkdown: "# IDENTITY",
+            usertemplate: nil,
+            identitytemplate: nil,
+            hash: "hash-2"
+        )
+        let encoder = JSONEncoder()
+        let payloadData = try encoder.encode(payload)
+        let payloadJson = try JSONSerialization.jsonObject(with: payloadData) as? [String: Any] ?? [:]
+        let res = ResponseFrame(type: "res", id: "req-2", ok: true, payload: AnyCodable(payloadJson), error: nil)
+        socket.inbox = [.data(try encoder.encode(res))]
+
+        let client = GatewayClient(
+            url: URL(string: "ws://example")!,
+            sharedToken: nil,
+            tokenStore: tokenStore,
+            identityStore: identityStore,
+            webSocket: socket
+        )
+
+        let result = try await client.agentProfileSet(
+            agentId: "main",
+            identity: ["name": AnyCodable("Nova")],
+            userMarkdown: "# USER",
+            identityMarkdown: "# IDENTITY",
+            baseHash: "hash-1"
+        )
+        #expect(result.hash == "hash-2")
+
+        guard case let .data(data) = socket.sent.first else {
+            Issue.record("missing request frame")
+            return
+        }
+        let req = try JSONDecoder().decode(RequestFrame.self, from: data)
+        #expect(req.method == "agent.profile.set")
+        let params = req.params?.value as? [String: AnyCodable]
+        #expect(params?["agentId"]?.value as? String == "main")
+        #expect(params?["baseHash"]?.value as? String == "hash-1")
+        let identity = params?["identity"]?.value as? [String: AnyCodable]
+        #expect(identity?["name"]?.value as? String == "Nova")
+    }
 }

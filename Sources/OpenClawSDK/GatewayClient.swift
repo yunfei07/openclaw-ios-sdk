@@ -113,4 +113,57 @@ public actor GatewayClient {
         @unknown default: return nil
         }
     }
+
+    private func sendRequest<Response: Decodable, Params: Encodable>(
+        method: String,
+        params: Params
+    ) async throws -> Response {
+        let paramsData = try encoder.encode(params)
+        let paramsJson = try JSONSerialization.jsonObject(with: paramsData) as? [String: Any] ?? [:]
+        let req = RequestFrame(
+            type: "req",
+            id: UUID().uuidString,
+            method: method,
+            params: AnyCodable(paramsJson)
+        )
+        let data = try encoder.encode(req)
+        try await socket.send(.data(data))
+
+        let resMsg = try await socket.receive()
+        guard let resData = decodeMessageData(resMsg) else {
+            throw NSError(domain: "Gateway", code: 1, userInfo: [NSLocalizedDescriptionKey: "missing response"])
+        }
+        let resFrame = try decoder.decode(GatewayFrame.self, from: resData)
+        guard case let .res(res) = resFrame else {
+            throw NSError(domain: "Gateway", code: 1, userInfo: [NSLocalizedDescriptionKey: "unexpected response"])
+        }
+        guard res.ok == true, let payload = res.payload else {
+            let message = res.error?["message"]?.value as? String ?? "request failed"
+            throw NSError(domain: "Gateway", code: 1, userInfo: [NSLocalizedDescriptionKey: message])
+        }
+        let payloadData = try encoder.encode(payload)
+        return try decoder.decode(Response.self, from: payloadData)
+    }
+
+    public func agentProfileGet(agentId: String? = nil, sessionKey: String? = nil) async throws -> AgentProfileResult {
+        let params = AgentProfileGetParams(agentid: agentId, sessionkey: sessionKey)
+        return try await sendRequest(method: "agent.profile.get", params: params)
+    }
+
+    public func agentProfileSet(
+        agentId: String,
+        identity: [String: AnyCodable]? = nil,
+        userMarkdown: String? = nil,
+        identityMarkdown: String? = nil,
+        baseHash: String? = nil
+    ) async throws -> AgentProfileResult {
+        let params = AgentProfileSetParams(
+            agentid: agentId,
+            identity: identity,
+            usermarkdown: userMarkdown,
+            identitymarkdown: identityMarkdown,
+            basehash: baseHash
+        )
+        return try await sendRequest(method: "agent.profile.set", params: params)
+    }
 }

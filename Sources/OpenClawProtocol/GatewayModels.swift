@@ -606,6 +606,89 @@ public struct AgentIdentityResult: Codable, Sendable {
     }
 }
 
+public struct AgentProfileGetParams: Codable, Sendable {
+    public let agentid: String?
+    public let sessionkey: String?
+
+    public init(
+        agentid: String?,
+        sessionkey: String?
+    ) {
+        self.agentid = agentid
+        self.sessionkey = sessionkey
+    }
+    private enum CodingKeys: String, CodingKey {
+        case agentid = "agentId"
+        case sessionkey = "sessionKey"
+    }
+}
+
+public struct AgentProfileSetParams: Codable, Sendable {
+    public let agentid: String
+    public let identity: [String: AnyCodable]?
+    public let usermarkdown: String?
+    public let identitymarkdown: String?
+    public let basehash: String?
+
+    public init(
+        agentid: String,
+        identity: [String: AnyCodable]?,
+        usermarkdown: String?,
+        identitymarkdown: String?,
+        basehash: String?
+    ) {
+        self.agentid = agentid
+        self.identity = identity
+        self.usermarkdown = usermarkdown
+        self.identitymarkdown = identitymarkdown
+        self.basehash = basehash
+    }
+    private enum CodingKeys: String, CodingKey {
+        case agentid = "agentId"
+        case identity
+        case usermarkdown = "userMarkdown"
+        case identitymarkdown = "identityMarkdown"
+        case basehash = "baseHash"
+    }
+}
+
+public struct AgentProfileResult: Codable, Sendable {
+    public let agentid: String
+    public let identity: [String: AnyCodable]?
+    public let usermarkdown: String
+    public let identitymarkdown: String
+    public let usertemplate: String?
+    public let identitytemplate: String?
+    public let hash: String
+
+    public init(
+        agentid: String,
+        identity: [String: AnyCodable]?,
+        usermarkdown: String,
+        identitymarkdown: String,
+        usertemplate: String?,
+        identitytemplate: String?,
+        hash: String
+    ) {
+        self.agentid = agentid
+        self.identity = identity
+        self.usermarkdown = usermarkdown
+        self.identitymarkdown = identitymarkdown
+        self.usertemplate = usertemplate
+        self.identitytemplate = identitytemplate
+        self.hash = hash
+    }
+    private enum CodingKeys: String, CodingKey {
+        case agentid = "agentId"
+        case identity
+        case usermarkdown = "userMarkdown"
+        case identitymarkdown = "identityMarkdown"
+        case usertemplate = "userTemplate"
+        case identitytemplate = "identityTemplate"
+        case hash
+    }
+}
+
 public struct AgentWaitParams: Codable, Sendable {
     public let runid: String
     public let timeoutms: Int?
